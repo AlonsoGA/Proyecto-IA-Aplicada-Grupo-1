@@ -1,0 +1,14 @@
+metrica,valor
+filas_2010_2024,937119.0
+pct_filas_duplicadas,15.2
+pct_localidad_nula,12.2
+pct_ubigeo_nulo,0.0
+filas_lima,122073.0
+pct_duplicadas_lima,20.9
+distritos_lima,81.0
+pct_localidad_nula_lima,39.3
+semana_fuera_1_53_lima,0.0
+ubigeo_no_6_digitos_lima,0.0
+ubigeo_no_15_lima,0.0
+edad_anios_mayor_100_lima,5.0
+edad_meses_mayor_11_lima,0.0
