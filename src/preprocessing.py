@@ -18,7 +18,7 @@ PROCESSED = ROOT / "data" / "processed"
 
 ANIO_INI, ANIO_FIN = 2010, 2024  # el clima empieza en 2010
 DEPARTAMENTO = "LIMA"
-# Lima + departamentos con clima parecido (ver EDA, seccion 8); a confirmar con el grupo
+# Lima + departamentos con clima parecido (ver EDA, seccion 8)
 DEPARTAMENTOS_MODELO = ["LIMA", "ICA", "LA LIBERTAD", "ANCASH", "CALLAO"]
 HORIZONTE = 4  # semanas hacia adelante que se predicen
 
