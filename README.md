@@ -3,11 +3,11 @@
 **Curso:** Inteligencia Artificial Aplicada (1INF62)  
 **Periodo:** 2026-2  
 **Integrantes:** Luis Leiva, Alonso G. A., ______  
-**Tema:** predicción de número de casos de dengue en el distrito de Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
+**Tema:** predicción del número de casos de dengue en el departamento de Lima para la cuarta semana epidemiológica después de emitir el pronóstico, usando el historial de casos y variables climáticas rezagadas.
 
 ## 1. Problema y objetivo
 - **Problema que se busca resolver:** el dengue, transmitido por *Aedes* y sin vacuna eficaz, depende de variables climáticas con desfase temporal. Perú vive su peor epidemia histórica (2023-2024), asociada al Niño costero, con Lima muy afectada pese a no ser zona endémica tradicional. Los sistemas de vigilancia reaccionan tarde ante los brotes.
-- **Objetivo general:** predecir el número de casos de dengue en Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
+- **Objetivo general:** predecir el número de casos de dengue del departamento de Lima en la semana t+4, usando el historial de casos y variables climáticas rezagadas.
 - **Importancia de la problemática:** una predicción con 4 semanas de anticipación daría margen para fumigación, control de criaderos y preparación hospitalaria antes de que el brote crezca.
 
 ## 2. Dataset
@@ -59,7 +59,7 @@
    jupyter notebook
    ```
 
-Completar las instrucciones específicas cuando se elijan el dataset y los modelos.
+Ejecutar `notebooks/02_modelos.ipynb` de principio a fin después de regenerar `modelado.csv`. El notebook compara persistencia, Ridge y LSTM mediante validación temporal en 2021–2023 y reserva para prueba los orígenes de pronóstico de Lima de 2024.
 
 ## 6. Resultados
 Los resultados finales se registrarán en `results/metrics.csv`, los gráficos en `results/plots/` y el análisis en `results/model_comparison.txt`.
