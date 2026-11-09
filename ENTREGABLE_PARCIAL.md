@@ -8,14 +8,27 @@
 | Entregable | Estado | Dónde |
 |---|---|---|
 | README completo (problema, objetivo, metodología) | Completo | `README.md` |
-| Papers revisados, mínimo 1 por integrante | Parcial (1 de 3) | `papers/` |
-| Dataset con origen, características y permisos | Completo | `data/raw/`, `data/raw/README.md` |
+| Papers revisados, mínimo 1 por integrante | Parcial (2 de 3) | `papers/` |
+| Dataset con origen, características y permisos | Completo | `data/raw/dengue_kaggle.zip`, `README.md` (sección Dataset) |
 | EDA con visualizaciones | Completo | `notebooks/01_eda.ipynb`, `results/plots/eda/` |
-| Propuesta de modelos | Pendiente | por definir |
-| Baseline funcionando | Pendiente | `notebooks/02_modelos.ipynb` |
+| Propuesta de modelos | Completo | sección 2 |
+| Baseline funcionando | Completo | `src/models.py` (persistencia), `results/metrics.csv` |
 
-## 2. Pendientes
+## 2. Propuesta de modelos
 
-- Resúmenes de papers de los otros 2 integrantes en `papers/`.
-- Propuesta de modelos (técnicas de la literatura a implementar).
-- Baseline en `notebooks/02_modelos.ipynb`.
+Objetivo: `log(1 + casos en t+4)` de Lima. Todo modelo debe superar la persistencia (repetir los casos de hoy).
+
+| Modelo | Responsable | Dónde | Justificación |
+|---|---|---|---|
+| Persistencia (baseline) | grupo | `src/models.py` | Referencia mínima: MAE 132.8 en 759 semanas de Lima |
+| XGBoost tuneado | Luis | `src/models.py`, `notebooks/03_xgboost.ipynb` | Árboles potenciados con clima y casos rezagados; funcionan con pocas filas y capturan relaciones no lineales |
+| LSTM y GRU | Alonso | `notebooks/02_modelos.ipynb` | Redes recurrentes sobre ventanas de 8 semanas; usadas en la literatura de predicción de brotes de dengue (Leung et al., 2023) |
+
+## 3. Baseline
+
+Persistencia evaluada en las 759 semanas de Lima (`src/evaluation.py`): MAE 132.8, RMSE 663.6, WAPE 82.6 %. Es la referencia para el resto de modelos. Resultados en `results/metrics.csv` y `results/model_comparison.txt`.
+
+## 4. Pendientes
+
+- Resumen de paper del tercer integrante en `papers/`.
+- Informe final, presentación y `ENTREGABLE_FINAL.md`.
