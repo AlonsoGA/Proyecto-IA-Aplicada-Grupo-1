@@ -1,1 +1,68 @@
-Completar con la comparación de modelos, métricas, análisis, limitaciones e insights.
+COMPARACION DE MODELOS - XGBOOST TUNEADO (Luis Leiva)
+=====================================================
+Problema: pronosticar los casos de dengue de Lima 4 semanas adelante.
+Prueba: 759 semanas evaluables de Lima (2010-2024), la misma que usa el LSTM/GRU
+de notebooks/02_modelos.ipynb. Walk-forward: cada 13 semanas se reentrena solo con
+filas cuyo objetivo ya se conocia. Media de 3 semillas (42-44), N_JOBS=1.
+Reproducir: notebooks/03_xgboost.ipynb. Metricas en results/metrics.csv.
+
+1. Modelos
+----------
+- Persistencia (baseline): casos de t+4 = casos de hoy.
+- XGBoost tuneado: predice delta = log1p(casos t+4) - log1p(casos t) con clima
+  rezagado, historial de casos, ICEN y estacionalidad (35 variables). Hiperparametros
+  por busqueda aleatoria (30 configuraciones) con CV temporal, en dos cortes (2022
+  para predecir 2023; 2023 para predecir 2024).
+- XGBoost tuneado + regional + nuevas: suma 3 variables regionales (promedio,
+  crecimiento y maximo de los otros departamentos) y 7 dinamicas (casos acumulados
+  de 13 y 52 semanas, aceleracion, anomalia del nivel y de la temperatura, dinamica
+  regional). Mismos hiperparametros, sin volver a tunear.
+
+2. Resultados en Lima (todo el periodo, 759 semanas)
+----------------------------------------------------
+Modelo                                  MAE    RMSE   WAPE %  MAE brote  sd MAE
+Persistencia                           132.8   663.6   82.6    1266.1     -
+XGBoost tuneado                         79.1   463.6   49.2     757.0    3.5
+XGBoost tuneado + regional + nuevas     67.0   371.2   41.7     638.3    1.6
+
+Solo 2023-2024 (olas grandes), MAE: persistencia 1014.5 | XGBoost 596.3 |
+XGBoost + regional + nuevas 502.5 (-50 % vs persistencia).
+
+IC 95 % de la diferencia de MAE vs persistencia (bootstrap de bloques de 8 semanas):
+  XGBoost tuneado                      -55.2 casos  [-120.4, -11.3]
+  XGBoost + regional + nuevas          -66.4 casos  [-141.3, -13.8]
+Ambos intervalos excluyen 0.
+
+3. Otros departamentos (MAE relativo a persistencia, 2023-2024, semilla 42)
+---------------------------------------------------------------------------
+Entrenando con 18 departamentos y probando en los 8 con mas casos en 2023-24
+(regla fijada antes de ver resultados). 1.0 = igual que persistencia.
+                       LIMA PIURA LALIB  ICA  LAMB ANCASH TUMBES SANMARTIN MEDIA
+XGBoost tuneado        0.56  0.55  0.74  0.60  0.65  0.86  0.94    1.08    0.75
+XGBoost + reg + nuevas 0.54  0.55  0.77  0.64  0.58  0.83  0.96    0.90    0.72
+Gana a la persistencia en 7 de 8 departamentos; no en San Martin con el modelo base.
+
+4. Comparacion con el LSTM/GRU de Alonso (Lima, 2024, 43 origenes comunes)
+--------------------------------------------------------------------------
+Modelo                                  MAE     RMSE    sesgo
+Persistencia                           1688.2  2641.5     +12
+XGBoost tuneado                         968.6  1787.5     -35
+XGBoost + regional + nuevas             793.4  1387.9    -169
+LSTM regional (corrida de Alonso)      1495.8  2865.8   -1452
+GRU regional (corrida de Alonso)       1678.2  3192.7   -1669
+Los numeros de LSTM/GRU salen de ejecutar su notebook (una semilla); XGBoost se
+evalua sobre los mismos origenes de 2024. LSTM y GRU subestiman en ~1450-1670
+casos por semana (con 2030 casos medios); la GRU no mejora a la persistencia en MAE.
+
+5. Por que funciona mejor y limitaciones
+----------------------------------------
+- Predecir el cambio (delta) en vez del nivel evita depender de la escala del
+  departamento y hace que "no cambiar nada" equivalga a la persistencia.
+- El tuning reduce el MAE de la CV de 0.82 a 0.73-0.74 respecto de la persistencia.
+- Las variables regionales y dinamicas ayudan en la fase de subida de la ola,
+  donde esta ~60 % del error.
+- Limitaciones: solo dos olas (2023 y 2024) y el tuning se valida con brotes mas
+  chicos; 92 % del error de Lima esta en ~30 semanas; el pico sigue subestimado
+  (-5,200 casos); las variables nuevas se disenaron mirando Lima; solo ~15 % de los
+  inicios de ola se avisan a tiempo con 4 semanas; XGBoost depende del numero de
+  hilos (comparar siempre con el mismo N_JOBS).
