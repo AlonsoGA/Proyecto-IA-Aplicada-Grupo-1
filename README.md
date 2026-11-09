@@ -2,7 +2,7 @@
 
 **Curso:** Inteligencia Artificial Aplicada (1INF62)  
 **Periodo:** 2026-2  
-**Integrantes:** Luis Leiva, Alonso G. A., ______  
+**Integrantes:** Luis Leiva, Alonso G. A.  
 **Tema:** predicción de número de casos de dengue en el distrito de Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
 
 ## 1. Problema y objetivo
@@ -85,7 +85,8 @@ LSTM y GRU subestiman ~1450-1670 casos por semana; la GRU no mejora a la persist
 
 ## 7. Referencias
 - Leung, X. Y., Islam, R. M., Adhami, M., Ilic, D., McDonald, L., Palawaththa, S., Diug, B., Munshi, S. U., & Karim, M. N. (2023). A systematic review of dengue outbreak prediction models: Current scenario and future directions. *PLOS Neglected Tropical Diseases, 17*(2), e0010631. https://doi.org/10.1371/journal.pntd.0010631
-- Añadir referencias de los papers de los demás integrantes.
+- Chadalavada, S., Kamath, A. P., Sengur, A., Yarlagadda, T., Tan, R.-S., Ciaccio, E. J., Mathew, A., Deo, R., Barua, P. D., Hafeez-Baig, A., & Acharya, R. (2025). Automated detection and prediction of dengue fever: A systematic review from 2013 to 2025.
+- Mayta Quispe, M. F., & Alemán Gonzales, L. (2025). DengueAI: Comparative time-series and deep-learning modeling for early prediction of dengue outbreaks in rural Peru using open data. *2025 IEEE XXXII International Conference on Electronics, Electrical Engineering and Computing (INTERCON)*. https://doi.org/10.1109/INTERCON67304.2025.11244382
 
 
 ## Datos crudos

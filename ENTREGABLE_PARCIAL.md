@@ -8,7 +8,7 @@
 | Entregable | Estado | Dónde |
 |---|---|---|
 | README completo (problema, objetivo, metodología) | Completo | `README.md` |
-| Papers revisados, mínimo 1 por integrante | Parcial (2 de 3) | `papers/` |
+| Papers revisados, mínimo 1 por integrante | Completo (2 de 2) | `papers/` |
 | Dataset con origen, características y permisos | Completo | `data/raw/dengue_kaggle.zip`, `README.md` (sección Dataset) |
 | EDA con visualizaciones | Completo | `notebooks/01_eda.ipynb`, `results/plots/eda/` |
 | Propuesta de modelos | Completo | sección 2 |
@@ -30,5 +30,4 @@ Persistencia evaluada en las 759 semanas de Lima (`src/evaluation.py`): MAE 132.
 
 ## 4. Pendientes
 
-- Resumen de paper del tercer integrante en `papers/`.
 - Informe final, presentación y `ENTREGABLE_FINAL.md`.
