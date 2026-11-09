@@ -146,8 +146,7 @@ def dataset_modelado(casos_deptos, clima_por_depto, icen, horizonte=HORIZONTE):
     Features con informacion hasta t; `objetivo` = log1p(casos en t+horizonte).
     Se eliminan las filas sin lags de clima (8 primeras semanas de 2010, 1 % de
     las filas) y las ultimas `horizonte` semanas de cada departamento (sin
-    objetivo). No se parte en train/val/test aqui: eso se hace en el notebook
-    con train_test_split, como en los laboratorios.
+    objetivo). Se conserva la fecha de la etiqueta para el corte temporal.
     """
     partes = []
     for depto, clima in clima_por_depto.items():
@@ -159,6 +158,8 @@ def dataset_modelado(casos_deptos, clima_por_depto, icen, horizonte=HORIZONTE):
             d[f"log_casos_lag{k}"] = d.log_casos.shift(k)
         d["log_casos_mm4"] = d.log_casos.rolling(4).mean()
         d["objetivo"] = d.log_casos.shift(-horizonte)
+        d["fecha_objetivo"] = d.fecha_inicio.shift(-horizonte)
+        d = d.loc[d.fecha_objetivo.sub(d.fecha_inicio).eq(pd.Timedelta(weeks=horizonte))]
         partes.append(d.drop(columns="casos"))
     m = pd.concat(partes, ignore_index=True)
     m = m.merge(icen, on=["ano", "semana"], how="left")
