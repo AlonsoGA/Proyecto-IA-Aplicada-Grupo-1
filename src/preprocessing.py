@@ -199,6 +199,115 @@ def calidad(raw_dir=RAW):
     ], columns=["metrica", "valor"])
 
 
+# --- Tabla de modelado de XGBoost (variables adicionales) --------------------
+
+AMPLIADO = PROCESSED / "modelado_ampliado.csv"
+UMBRAL_BROTE = 50        # una semana "con brote" tiene mas de 50 casos
+MIN_SEMANAS_BROTE = 40   # y el departamento debe tener >= 40 antes de 2023
+
+CASOS = ["log_casos", "log_casos_lag1", "log_casos_lag2", "log_casos_lag3",
+         "log_casos_mm4", "crecimiento"]
+EXT = [f"{v}_lag{k}" for v in ("temp_media", "precip_total", "hum_rel")
+       for k in (10, 12)]
+FEATURES = CLIMA_COLS + EXT + CASOS + ["icen"] + ["sem_sin", "sem_cos"]
+# casos de los OTROS departamentos (alerta temprana regional)
+REG = ["reg_log", "reg_crec", "reg_max"]
+# variables dinamicas nuevas (todas usan solo informacion disponible en t)
+NUEVAS = ["acum13", "acum52", "acel", "anom52", "reg_lag2", "reg_crec1", "temp_anom"]
+
+
+def elegir_departamentos(casos_deptos):
+    """Departamentos del modelo + los que tuvieron brotes antes de 2023.
+
+    Regla fijada antes de ver resultados: solo usa datos previos a la prueba."""
+    antes = casos_deptos[casos_deptos.fecha_inicio < "2023-01-01"]
+    semanas = antes[antes.casos > UMBRAL_BROTE].groupby("departamento").size()
+    nuevos = sorted(semanas[semanas >= MIN_SEMANAS_BROTE].index)
+    return list(DEPARTAMENTOS_MODELO) + [d for d in nuevos if d not in DEPARTAMENTOS_MODELO]
+
+
+def generar_ampliado():
+    """Escribe data/processed/modelado_ampliado.csv (18 departamentos)."""
+    casos = pd.read_csv(PROCESSED / "departamentos_semanal.csv", parse_dates=["fecha_inicio"])
+    deptos = elegir_departamentos(casos)
+    vig = load_vigilancia()
+    mapa = pd.read_csv(RAW / "mapa_ubigeo_celda.csv", dtype={"ubigeo": str})
+    clima = pd.read_csv(RAW / "clima_celda_semana.csv")
+    icen = pd.read_csv(RAW / "icen_mensual.csv")
+    grilla = grilla_semanas(semanas_por_anio(vig))
+    clima_deptos = {d: clima_departamento(vig, mapa, clima, d) for d in deptos}
+    modelado = dataset_modelado(casos, clima_deptos, icen_semanal(grilla, icen))
+    modelado.to_csv(AMPLIADO, index=False)
+    return modelado
+
+
+def cargar(ruta=None):
+    """Tabla de modelado + rezagos largos (10, 12 sem), crecimiento y `delta`.
+
+    `delta = objetivo - log_casos` es lo que predicen los modelos: el cambio
+    en log, asi no dependen de la escala de cada departamento."""
+    m = pd.read_csv(ruta or PROCESSED / "modelado.csv", parse_dates=["fecha_inicio"])
+    m = m.sort_values(["departamento", "fecha_inicio"]).reset_index(drop=True)
+    g = m.groupby("departamento")
+    for v in ("temp_media", "precip_total", "hum_rel"):
+        for k in (10, 12):
+            m[f"{v}_lag{k}"] = g[v].shift(k)
+    m["crecimiento"] = m["log_casos"] - m["log_casos_lag3"]
+    m["delta"] = m["objetivo"] - m["log_casos"]
+    m["fecha_obj"] = m["fecha_inicio"] + pd.Timedelta(weeks=HORIZONTE)  # cuando se conoce
+    return m
+
+
+def agregar_regional(m):
+    """reg_log / reg_max / reg_crec: promedio, maximo y crecimiento (3 sem) de
+    log(1 + casos) de los DEMAS departamentos (nunca el propio)."""
+    piv = m.pivot(index="fecha_inicio", columns="departamento", values="log_casos")
+    partes = []
+    for dep in piv.columns:
+        otros = piv.drop(columns=dep)
+        r = pd.DataFrame({"reg_log": otros.mean(axis=1), "reg_max": otros.max(axis=1)})
+        r["reg_crec"] = r["reg_log"] - r["reg_log"].shift(3)
+        r["departamento"] = dep
+        partes.append(r.reset_index())
+    out = m.merge(pd.concat(partes, ignore_index=True), on=["departamento", "fecha_inicio"],
+                  how="left", validate="1:1")
+    out[REG] = out[REG].fillna(0)
+    return out
+
+
+def nuevas_variables(m):
+    """acum13/acum52: casos acumulados (log); acel: aceleracion; anom52: nivel
+    vs. promedio de 52 sem; reg_lag2/reg_crec1: dinamica regional;
+    temp_anom: temperatura vs. su promedio de 52 sem. Requiere `agregar_regional`."""
+    m = m.sort_values(["departamento", "fecha_inicio"]).copy()
+    g = m.groupby("departamento", sort=False)
+    m["_c"] = np.expm1(m["log_casos"])
+    gc = m.groupby("departamento", sort=False)["_c"]
+    m["acum13"] = np.log1p(gc.transform(lambda s: s.rolling(13, min_periods=4).sum()))
+    m["acum52"] = np.log1p(gc.transform(lambda s: s.rolling(52, min_periods=13).sum()))
+    m["acel"] = m["crecimiento"] - (m["log_casos_lag3"] - g["log_casos"].shift(6))
+    m["anom52"] = m["log_casos"] - g["log_casos"].transform(
+        lambda s: s.rolling(52, min_periods=13).mean())
+    m["reg_lag2"] = g["reg_log"].shift(2)
+    m["reg_crec1"] = m["reg_log"] - g["reg_log"].shift(1)
+    m["temp_anom"] = m["temp_media"] - g["temp_media"].transform(
+        lambda s: s.rolling(52, min_periods=13).mean())
+    m[NUEVAS] = m[NUEVAS].fillna(0)
+    return m.drop(columns="_c").sort_index()
+
+
+def preparar(departamentos=None, ruta=AMPLIADO):
+    """Tabla lista para XGBoost: base + regionales + nuevas.
+
+    `departamentos`: universo de entrenamiento (p. ej. DEPARTAMENTOS_MODELO).
+    Las variables regionales resumen a los otros departamentos de ese universo."""
+    m = cargar(ruta)
+    if departamentos is not None:
+        m = m[m.departamento.isin(departamentos)].reset_index(drop=True)
+    return nuevas_variables(agregar_regional(m)).sort_values(
+        ["departamento", "fecha_inicio"]).reset_index(drop=True)
+
+
 def main():
     PROCESSED.mkdir(parents=True, exist_ok=True)
     vig = load_vigilancia()
