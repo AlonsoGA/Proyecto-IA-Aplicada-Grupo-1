@@ -38,7 +38,7 @@
 ## 4. Estructura
 - `data/raw/`: datos originales.
 - `data/processed/`: datos limpios y preparados.
-- `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU) y `03_xgboost.ipynb` (XGBoost tuneado y comparación).
+- `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU) y `03_xgboost.ipynb` (XGBoost tuneado y comparación); anexo opcional: `anexo_ablacion_errores.ipynb` (ablación de variables y errores por fase).
 - `src/`: `preprocessing.py` (datos, variables regionales y nuevas), `models.py` (persistencia y XGBoost con tuning y walk-forward) y `evaluation.py` (métricas, prueba de Lima y bootstrap).
 - `results/`: métricas, gráficos y análisis comparativo.
 - `papers/`: artículos revisados por el grupo.

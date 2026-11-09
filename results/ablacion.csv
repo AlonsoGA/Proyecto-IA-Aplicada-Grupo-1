@@ -1,0 +1,11 @@
+,MAE,MAE 2023-24,MAE 2024,cambio vs completo %
+Completo (base + regional + nuevas),66.4,497.3,793.4,0.0
+Solo base,77.5,584.2,968.6,16.8
+Base + regional,70.6,530.5,830.3,6.4
+Base + nuevas,69.5,521.6,839.6,4.7
+Completo sin ICEN,69.2,520.4,811.0,4.3
+Completo sin estacionalidad,77.5,584.8,937.4,16.8
+Completo sin clima,70.9,532.3,802.5,6.8
+Completo sin regional,69.5,521.6,839.6,4.7
+Completo sin nuevas,70.6,530.5,830.3,6.4
+Persistencia,132.8,1014.5,1688.2,100.1
