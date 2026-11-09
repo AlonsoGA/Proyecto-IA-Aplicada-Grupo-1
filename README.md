@@ -31,8 +31,8 @@
 1. Revisión de literatura académica revisada por pares.
 2. Análisis exploratorio de datos en `notebooks/01_eda.ipynb`.
 3. Preparación de datos con funciones de `src/preprocessing.py`.
-4. Implementación de un baseline y otros modelos en `src/models.py`.
-5. Evaluación con métricas apropiadas en `src/evaluation.py`.
+4. Comparación de persistencia, Ridge y variantes del LSTM en [`notebooks/02_modelos.ipynb`](notebooks/02_modelos.ipynb).
+5. Evaluación temporal con MAE, RMSE, WAPE y sesgo en casos.
 6. Comparación y discusión de resultados.
 
 ## 4. Estructura
@@ -58,8 +58,7 @@
    ```bash
    jupyter notebook
    ```
-
-Ejecutar `notebooks/02_modelos.ipynb` de principio a fin después de regenerar `modelado.csv`. El notebook compara persistencia, Ridge y LSTM mediante validación temporal en 2021–2023 y reserva para prueba los orígenes de pronóstico de Lima de 2024.
+6. Ejecutar [`notebooks/02_modelos.ipynb`](notebooks/02_modelos.ipynb) de principio a fin. La validación usa bloques de 2021 a 2023 y la prueba final usa los orígenes de pronóstico de Lima de 2024.
 
 ## 6. Resultados
 Los resultados finales se registrarán en `results/metrics.csv`, los gráficos en `results/plots/` y el análisis en `results/model_comparison.txt`.
@@ -78,12 +77,15 @@ Ejecutar python src/preprocessing.py para generar las tablas de data/processed/.
 Origen del zip: dataset de Kaggle https://www.kaggle.com/datasets/stefanychavezherrera/dengue, sin modificar.
 
 ## Archivos
-## Archivo	Tamaño	Contenido	Fuente original
-datos_abiertos_vigilancia_dengue_2000_2024.csv	108.5 MB	Un caso por fila (departamento, distrito, año, semana, diagnóstico, edad, sexo). Separador ;	CDC Perú-MINSA (RENACE), datosabiertos.gob.pe
-clima_celda_semana.csv	91.1 MB	Clima semanal por celda de grilla (~55 km), 2010-2024, con rezagos de 2/4/6/8 semanas y anomalías	NASA POWER (MERRA-2)
-icen_mensual.csv	23 KB	Índice Costero El Niño, mensual, 2009-2024	IGP / ENFEN
-distritos_dengue_centroides.csv	144 KB	660 distritos con ubicación, altitud, IDH y pobreza	Compilado en el dataset de Kaggle
-mapa_ubigeo_celda.csv	51 KB	Distrito (ubigeo) a celda de grilla climática	Compilado en el dataset de Kaggle
+
+| Archivo | Tamaño | Contenido | Fuente original |
+|---|---|---|---|
+| datos_abiertos_vigilancia_dengue_2000_2024.csv | 108.5 MB | Un caso por fila (departamento, distrito, año, semana, diagnóstico, edad, sexo). Separador ; | CDC Perú-MINSA (RENACE), datosabiertos.gob.pe |
+| clima_celda_semana.csv | 91.1 MB | Clima semanal por celda de grilla (~55 km), 2010-2024, con rezagos de 2/4/6/8 semanas y anomalías | NASA POWER (MERRA-2) |
+| icen_mensual.csv | 23 KB | Índice Costero El Niño, mensual, 2009-2024 | IGP / ENFEN |
+| distritos_dengue_centroides.csv | 144 KB | 660 distritos con ubicación, altitud, IDH y pobreza | Compilado en el dataset de Kaggle |
+| mapa_ubigeo_celda.csv | 51 KB | Distrito (ubigeo) a celda de grilla climática | Compilado en el dataset de Kaggle |
+
 ## Permisos y licencia
 Fecha de descarga: 2026-10-10 (Kaggle, dataset completo de 5 archivos).
 La vigilancia es dato público del MINSA con licencia ODC-BY (requiere atribución). La ficha oficial indica que los datos son provisionales.
