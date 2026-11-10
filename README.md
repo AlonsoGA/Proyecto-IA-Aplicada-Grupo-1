@@ -2,7 +2,7 @@
 
 **Curso:** Inteligencia Artificial Aplicada (1INF62)  
 **Periodo:** 2026-2  
-**Integrantes:** Luis Leiva, Alonso G. A., ______  
+**Integrantes:** Luis Leiva, Alonso G. A.  
 **Tema:** predicción de número de casos de dengue en el distrito de Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
 
 ## 1. Problema y objetivo
@@ -31,15 +31,15 @@
 1. Revisión de literatura académica revisada por pares.
 2. Análisis exploratorio de datos en `notebooks/01_eda.ipynb`.
 3. Preparación de datos con funciones de `src/preprocessing.py`.
-4. Implementación de un baseline y otros modelos en `src/models.py`.
-5. Evaluación con métricas apropiadas en `src/evaluation.py`.
-6. Comparación y discusión de resultados.
+4. Implementación del baseline (persistencia) y de XGBoost tuneado en `src/models.py`; LSTM y GRU en `notebooks/02_modelos.ipynb`.
+5. Evaluación con métricas apropiadas en `src/evaluation.py` (MAE, RMSE y WAPE en casos).
+6. Comparación y discusión de resultados (`notebooks/03_xgboost.ipynb`, `results/model_comparison.txt`).
 
 ## 4. Estructura
 - `data/raw/`: datos originales.
 - `data/processed/`: datos limpios y preparados.
-- `notebooks/`: análisis exploratorio y experimentos.
-- `src/`: funciones de preparación, modelos y evaluación.
+- `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU) y `03_xgboost.ipynb` (XGBoost tuneado y comparación); anexo opcional: `anexo_ablacion_errores.ipynb` (ablación de variables y errores por fase).
+- `src/`: `preprocessing.py` (datos, variables regionales y nuevas), `models.py` (persistencia y XGBoost con tuning y walk-forward) y `evaluation.py` (métricas, prueba de Lima y bootstrap).
 - `results/`: métricas, gráficos y análisis comparativo.
 - `papers/`: artículos revisados por el grupo.
 
@@ -54,19 +54,39 @@
    ```bash
    python src/preprocessing.py
    ```
-5. Abrir los notebooks:
+5. Abrir los notebooks (desde `notebooks/`):
    ```bash
    jupyter notebook
    ```
-
-Completar las instrucciones específicas cuando se elijan el dataset y los modelos.
+   `03_xgboost.ipynb` usa los hiperparámetros guardados en `results/tuning_hiperparametros.json`; si no existen, repite la búsqueda (~10 min). Genera `data/processed/modelado_ampliado.csv` (18 departamentos) si falta. Para comparar corridas de XGBoost hay que usar el mismo `N_JOBS` (por defecto 1).
 
 ## 6. Resultados
-Los resultados finales se registrarán en `results/metrics.csv`, los gráficos en `results/plots/` y el análisis en `results/model_comparison.txt`.
+Resultados en `results/metrics.csv`, gráficos en `results/plots/` y análisis en `results/model_comparison.txt`. XGBoost (Lima, 759 semanas, MAE medio de 3 semillas):
+
+| Modelo | MAE | RMSE | WAPE % |
+|---|---|---|---|
+| Persistencia (baseline) | 132.8 | 663.6 | 82.6 |
+| XGBoost tuneado | 79.1 | 463.6 | 49.2 |
+| XGBoost tuneado + regional + variables nuevas | 67.0 | 371.2 | 41.7 |
+
+La mejora frente a la persistencia es significativa (IC 95 % de la diferencia de MAE por bootstrap de bloques excluye 0), y se mantiene en 7 de 8 departamentos con ola 2023-24.
+
+**Comparación con LSTM y GRU (Alonso).** Su notebook evalúa solo 2024, así que la comparación se hace sobre esos mismos 43 orígenes de Lima (casos medios: 2030). Los números de LSTM/GRU salen de ejecutar `02_modelos.ipynb` (una semilla; variante regional con historial y clima); los demás, de `03_xgboost.ipynb`.
+
+| Modelo (Lima, 2024) | MAE | RMSE | Sesgo |
+|---|---|---|---|
+| Persistencia (baseline) | 1688.2 | 2641.5 | +12 |
+| LSTM regional (Alonso) | 1495.8 | 2865.8 | −1452 |
+| GRU regional (Alonso) | 1678.2 | 3192.7 | −1669 |
+| XGBoost tuneado | 968.6 | 1787.5 | −35 |
+| XGBoost tuneado + regional + variables nuevas | 793.4 | 1387.9 | −169 |
+
+LSTM y GRU subestiman ~1450-1670 casos por semana; la GRU no mejora a la persistencia en MAE. Limitaciones: solo dos olas, el pico sigue subestimado y solo ~15 % de los inicios de ola se avisan a tiempo con 4 semanas de anticipación.
 
 ## 7. Referencias
 - Leung, X. Y., Islam, R. M., Adhami, M., Ilic, D., McDonald, L., Palawaththa, S., Diug, B., Munshi, S. U., & Karim, M. N. (2023). A systematic review of dengue outbreak prediction models: Current scenario and future directions. *PLOS Neglected Tropical Diseases, 17*(2), e0010631. https://doi.org/10.1371/journal.pntd.0010631
-- Añadir referencias de los papers de los demás integrantes.
+- Chadalavada, S., Kamath, A. P., Sengur, A., Yarlagadda, T., Tan, R.-S., Ciaccio, E. J., Mathew, A., Deo, R., Barua, P. D., Hafeez-Baig, A., & Acharya, R. (2025). Automated detection and prediction of dengue fever: A systematic review from 2013 to 2025.
+- Mayta Quispe, M. F., & Alemán Gonzales, L. (2025). DengueAI: Comparative time-series and deep-learning modeling for early prediction of dengue outbreaks in rural Peru using open data. *2025 IEEE XXXII International Conference on Electronics, Electrical Engineering and Computing (INTERCON)*. https://doi.org/10.1109/INTERCON67304.2025.11244382
 
 
 ## Datos crudos

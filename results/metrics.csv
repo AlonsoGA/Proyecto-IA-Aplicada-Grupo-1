@@ -1,1 +1,40 @@
 modelo,metrica,valor
+Persistencia,MAE,132.7576
+Persistencia,RMSE,663.613
+Persistencia,WAPE,82.6102
+Persistencia,MAE_brote,1266.1429
+Persistencia,RMSE_brote,2082.7569
+Persistencia,WAPE_brote,81.4498
+Persistencia,Error_pico,-4965.0
+Persistencia,Desfase_pico_sem,4.0
+XGBoost tuneado,MAE,79.0598
+XGBoost tuneado,RMSE,463.6235
+XGBoost tuneado,WAPE,49.1961
+XGBoost tuneado,MAE_brote,757.0093
+XGBoost tuneado,RMSE_brote,1455.4561
+XGBoost tuneado,WAPE_brote,48.6977
+XGBoost tuneado,Error_pico,-4460.109
+XGBoost tuneado,Desfase_pico_sem,2.0
+XGBoost tuneado + regional + nuevas,MAE,67.0474
+XGBoost tuneado + regional + nuevas,RMSE,371.1824
+XGBoost tuneado + regional + nuevas,WAPE,41.7212
+XGBoost tuneado + regional + nuevas,MAE_brote,638.3368
+XGBoost tuneado + regional + nuevas,RMSE_brote,1165.187
+XGBoost tuneado + regional + nuevas,WAPE_brote,41.0636
+XGBoost tuneado + regional + nuevas,Error_pico,-5231.6313
+XGBoost tuneado + regional + nuevas,Desfase_pico_sem,2.3333
+Persistencia (2024),MAE,1688.2
+Persistencia (2024),RMSE,2641.5
+Persistencia (2024),Sesgo,11.9
+"LSTM regional, Alonso (2024)",MAE,1495.8
+"LSTM regional, Alonso (2024)",RMSE,2865.8
+"LSTM regional, Alonso (2024)",Sesgo,-1452.4
+"GRU regional, Alonso (2024)",MAE,1678.2
+"GRU regional, Alonso (2024)",RMSE,3192.7
+"GRU regional, Alonso (2024)",Sesgo,-1669.1
+XGBoost tuneado (2024),MAE,968.6
+XGBoost tuneado (2024),RMSE,1787.5
+XGBoost tuneado (2024),Sesgo,-35.4
+XGBoost tuneado + regional + nuevas (2024),MAE,793.4
+XGBoost tuneado + regional + nuevas (2024),RMSE,1387.9
+XGBoost tuneado + regional + nuevas (2024),Sesgo,-168.6
