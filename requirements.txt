@@ -6,3 +6,5 @@ scikit-learn
 jupyter
 seaborn
 scipy
+tensorflow
+xgboost
