@@ -42,7 +42,7 @@
 |---|---|---|
 | Persistencia (baseline) | `src/models.py` | Repite los casos de hoy a 4 semanas. Referencia mínima que todo modelo debe superar. |
 | XGBoost tuneado | `src/models.py`, `notebooks/03_xgboost.ipynb` | Ensemble de árboles, familia respaldada por Leung (random forest y ensembles) y por Chadalavada (XGBoost). Funciona con pocas filas, captura relaciones no lineales entre clima rezagado y casos, y permite medir importancia de variables. |
-| LSTM y GRU | `notebooks/02_modelos.ipynb` | Redes recurrentes, las más usadas en la literatura para series con clima (Leung: redes neuronales; Chadalavada: LSTM). Reciben ventanas de 8 semanas de historial y clima; la variante regional agrega departamentos vecinos. La GRU es una versión más liviana de la LSTM. |
+| LSTM y GRU | `src/models.py`, `notebooks/02_modelos.ipynb` | Redes recurrentes, las más usadas en la literatura para series con clima (Leung: redes neuronales; Chadalavada: LSTM). Reciben ventanas de 8 semanas de historial y clima; la variante regional agrega departamentos vecinos. La GRU es una versión más liviana de la LSTM. |
 
 **Configuración de LSTM y GRU.** Misma arquitectura para ambas: una capa recurrente de 32 unidades, `Dropout(0.2)` y `Dense(1)`; optimizador Adam, pérdida MSE sobre `log(1 + casos)`, lotes de 32, ventana de 8 semanas y parada temprana (paciencia 8) según el MAE en casos. Qué sale de la literatura y qué es decisión propia:
 
@@ -74,8 +74,8 @@ Resultado resumido (sección 7): XGBoost supera a LSTM y GRU. Con solo dos olas 
 ## 5. Estructura
 - `data/raw/`: datos originales.
 - `data/processed/`: datos limpios y preparados.
-- `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU) y `03_xgboost.ipynb` (XGBoost tuneado y comparación); anexo opcional: `anexo_ablacion_errores.ipynb` (ablación de variables y errores por fase).
-- `src/`: `preprocessing.py` (datos, variables regionales y nuevas), `models.py` (persistencia y XGBoost con tuning y walk-forward) y `evaluation.py` (métricas, prueba de Lima y bootstrap).
+- `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU, usa `src/models.py`) y `03_xgboost.ipynb` (XGBoost tuneado y comparación); anexo opcional: `anexo_ablacion_errores.ipynb` (ablación de variables y errores por fase).
+- `src/`: `preprocessing.py` (datos, variables regionales y nuevas), `models.py` (persistencia, XGBoost con tuning y walk-forward, y LSTM/GRU) y `evaluation.py` (métricas, prueba de Lima y bootstrap).
 - `results/`: métricas, gráficos y análisis comparativo.
 - `papers/`: artículos revisados por el grupo.
 
@@ -107,7 +107,7 @@ Resultados en `results/metrics.csv`, gráficos en `results/plots/` y análisis e
 
 La mejora frente a la persistencia es significativa (IC 95 % de la diferencia de MAE por bootstrap de bloques excluye 0), y se mantiene en 7 de 8 departamentos con ola 2023-24.
 
-**Comparación con LSTM y GRU (Alonso).** Su notebook evalúa solo 2024, así que la comparación se hace sobre esos mismos 43 orígenes de Lima (casos medios: 2030). Los números de LSTM/GRU salen de ejecutar `02_modelos.ipynb` (una semilla; variante regional con historial y clima); los demás, de `03_xgboost.ipynb`.
+**Comparación con LSTM y GRU (Alonso).** Su notebook evalúa solo 2024, así que la comparación se hace sobre esos mismos 43 orígenes de Lima (casos medios: 2030). `02_modelos.ipynb` guarda las predicciones de LSTM/GRU en `results/predicciones_lstm_gru.csv` (una semilla; variante regional con historial y clima) y `03_xgboost.ipynb` las compara con los demás modelos en `results/comparacion_2024.csv`. El notebook 02 reporta sus métricas sobre 47 orígenes de 2024 (LSTM MAE 1368.9, GRU 1535.7); la tabla usa solo los 43 orígenes que también tienen predicción de XGBoost, por eso difieren.
 
 | Modelo (Lima, 2024) | MAE | RMSE | Sesgo |
 |---|---|---|---|
