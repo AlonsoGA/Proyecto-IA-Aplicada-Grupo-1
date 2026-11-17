@@ -44,6 +44,18 @@
 | XGBoost tuneado | `src/models.py`, `notebooks/03_xgboost.ipynb` | Ensemble de árboles, familia respaldada por Leung (random forest y ensembles) y por Chadalavada (XGBoost). Funciona con pocas filas, captura relaciones no lineales entre clima rezagado y casos, y permite medir importancia de variables. |
 | LSTM y GRU | `notebooks/02_modelos.ipynb` | Redes recurrentes, las más usadas en la literatura para series con clima (Leung: redes neuronales; Chadalavada: LSTM). Reciben ventanas de 8 semanas de historial y clima; la variante regional agrega departamentos vecinos. La GRU es una versión más liviana de la LSTM. |
 
+**Configuración de LSTM y GRU.** Misma arquitectura para ambas: una capa recurrente de 32 unidades, `Dropout(0.2)` y `Dense(1)`; optimizador Adam, pérdida MSE sobre `log(1 + casos)`, lotes de 32, ventana de 8 semanas y parada temprana (paciencia 8) según el MAE en casos. Qué sale de la literatura y qué es decisión propia:
+
+| Decisión | Valor | Respaldo |
+|---|---|---|
+| Arquitectura | 1 capa recurrente + `Dropout` + `Dense` | Majeed et al. (2023, IJERPH): LSTM de una capa con `Dropout` 0.2 y pérdida MSE para dengue semanal. |
+| Optimizador y pérdida | Adam, MSE | Flores et al. (2026, IJEECS): LSTM, BiLSTM, GRU y BiGRU con Adam y MSE sobre casos semanales de dengue del MINSA (Perú). |
+| Tamaño de capa | 32 unidades | Rango de la literatura: 4 (Majeed et al.) a 100 (Flores et al.). Elegimos un valor intermedio y pequeño porque solo hay dos olas epidémicas para entrenar. |
+| Ventana | 8 semanas | Propia. Flores et al. usan 52 semanas y Majeed et al. de 1 a 6 pasos; con 15 años de datos casi nulos antes de 2023, una ventana larga deja pocas muestras útiles. Falta probar otras ventanas. |
+| Escala log y parada temprana | `log(1 + casos)`, paciencia 8 | Propia: estabiliza los picos y evita sobreajustar. Flores et al. entrenan 100 épocas fijas sin parada temprana. |
+
+Diferencias con Flores et al. (2026): ellos usan solo el historial de casos a nivel nacional y predicen 1 a 5 pasos con atención; nosotros agregamos clima rezagado (recomendado por Leung et al.) y predicimos a 4 semanas. No se hizo búsqueda de hiperparámetros para LSTM/GRU (sí para XGBoost), lo que es una limitación de la comparación.
+
 Resultado resumido (sección 7): XGBoost supera a LSTM y GRU. Con solo dos olas epidémicas (2023 y 2024) hay pocos datos para entrenar redes recurrentes, y estas terminan subestimando los picos.
 
 **Métricas.** Se reportan en casos (no en log):
@@ -116,3 +128,5 @@ LSTM y GRU subestiman ~1450-1670 casos por semana; la GRU no mejora a la persist
 - Chadalavada, S., Kamath, A. P., Sengur, A., Yarlagadda, T., Tan, R.-S., Ciaccio, E. J., Mathew, A., Deo, R., Barua, P. D., Hafeez-Baig, A., & Acharya, R. (2025). Automated detection and prediction of dengue fever: A systematic review from 2013 to 2025.
 - Mayta Quispe, M. F., & Alemán Gonzales, L. (2025). DengueAI: Comparative time-series and deep-learning modeling for early prediction of dengue outbreaks in rural Peru using open data. *2025 IEEE XXXII International Conference on Electronics, Electrical Engineering and Computing (INTERCON)*. https://doi.org/10.1109/INTERCON67304.2025.11244382
 - Kolassa, S., & Schütz, W. (2007). Advantages of the MAD/Mean ratio over the MAPE. *Foresight: The International Journal of Applied Forecasting, 6*, 40-43. (Fuente del WAPE.)
+- Flores, A., Tito Chura, H., Yana Mamani, V., & Rosado Chavez, C. (2026). Dengue case forecasting using multi-step deep learning models with attention layers. *Indonesian Journal of Electrical Engineering and Computer Science, 41*(2), 546-554. https://doi.org/10.11591/ijeecs.v41.i2.pp546-554
+- Majeed, M. A., Shafri, H. Z. M., Zulkafli, Z., & Wayayok, A. (2023). A deep learning approach for dengue fever prediction in Malaysia using LSTM with spatial attention. *International Journal of Environmental Research and Public Health, 20*(5), 4130. https://doi.org/10.3390/ijerph20054130
