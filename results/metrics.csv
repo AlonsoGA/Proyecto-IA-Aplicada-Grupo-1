@@ -23,18 +23,23 @@ XGBoost tuneado + regional + nuevas,RMSE_brote,1165.187
 XGBoost tuneado + regional + nuevas,WAPE_brote,41.0636
 XGBoost tuneado + regional + nuevas,Error_pico,-5231.6313
 XGBoost tuneado + regional + nuevas,Desfase_pico_sem,2.3333
-Persistencia (2024),MAE,1688.2
-Persistencia (2024),RMSE,2641.5
-Persistencia (2024),Sesgo,11.9
-"LSTM regional, Alonso (2024)",MAE,1495.8
-"LSTM regional, Alonso (2024)",RMSE,2865.8
-"LSTM regional, Alonso (2024)",Sesgo,-1452.4
-"GRU regional, Alonso (2024)",MAE,1678.2
-"GRU regional, Alonso (2024)",RMSE,3192.7
-"GRU regional, Alonso (2024)",Sesgo,-1669.1
-XGBoost tuneado (2024),MAE,968.6
-XGBoost tuneado (2024),RMSE,1787.5
-XGBoost tuneado (2024),Sesgo,-35.4
-XGBoost tuneado + regional + nuevas (2024),MAE,793.4
-XGBoost tuneado + regional + nuevas (2024),RMSE,1387.9
-XGBoost tuneado + regional + nuevas (2024),Sesgo,-168.6
+Persistencia (2024),MAE,1688.1860465116285
+Persistencia (2024),RMSE,2641.4775023363054
+Persistencia (2024),WAPE,83.17616728731024
+Persistencia (2024),Sesgo,11.906976744186025
+XGBoost tuneado (2024),MAE,968.5583753681294
+XGBoost tuneado (2024),RMSE,1787.458967330735
+XGBoost tuneado (2024),WAPE,47.72043556669098
+XGBoost tuneado (2024),Sesgo,-35.43593538467247
+XGBoost tuneado + regional + nuevas (2024),MAE,793.3658197455759
+XGBoost tuneado + regional + nuevas (2024),RMSE,1387.946293613304
+XGBoost tuneado + regional + nuevas (2024),WAPE,39.088777140142945
+XGBoost tuneado + regional + nuevas (2024),Sesgo,-168.58347338606742
+LSTM regional (Alonso) (2024),MAE,1495.834870617857
+LSTM regional (Alonso) (2024),RMSE,2865.7556806847
+LSTM regional (Alonso) (2024),WAPE,73.69911135670905
+LSTM regional (Alonso) (2024),Sesgo,-1452.4043315476856
+GRU regional (Alonso) (2024),MAE,1678.2260747357684
+GRU regional (Alonso) (2024),RMSE,3192.6871029293393
+GRU regional (Alonso) (2024),WAPE,82.6854439571905
+GRU regional (Alonso) (2024),Sesgo,-1669.0895843733515

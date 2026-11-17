@@ -1,0 +1,6 @@
+modelo,MAE,RMSE,WAPE %,sesgo
+Persistencia,1688.2,2641.5,83.2,11.9
+XGBoost tuneado,968.6,1787.5,47.7,-35.4
+XGBoost tuneado + regional + nuevas,793.4,1387.9,39.1,-168.6
+LSTM regional (Alonso),1495.8,2865.8,73.7,-1452.4
+GRU regional (Alonso),1678.2,3192.7,82.7,-1669.1
