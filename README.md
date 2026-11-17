@@ -3,11 +3,11 @@
 **Curso:** Inteligencia Artificial Aplicada (1INF62)  
 **Periodo:** 2026-2  
 **Integrantes:** Luis Leiva, Alonso G. A.  
-**Tema:** predicción de número de casos de dengue en el distrito de Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
+**Tema:** predicción de número de casos de dengue en el departamento de Lima (81 distritos agregados en una sola serie semanal) para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas. Se usan también series de otros departamentos como variables de apoyo, pero el objetivo a predecir es solo Lima.
 
 ## 1. Problema y objetivo
 - **Problema que se busca resolver:** el dengue, transmitido por *Aedes* y sin vacuna eficaz, depende de variables climáticas con desfase temporal. Perú vive su peor epidemia histórica (2023-2024), asociada al Niño costero, con Lima muy afectada pese a no ser zona endémica tradicional. Los sistemas de vigilancia reaccionan tarde ante los brotes.
-- **Objetivo general:** predecir el número de casos de dengue en Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
+- **Objetivo general:** predecir el número de casos de dengue del departamento de Lima para las próximas 4 semanas epidemiológicas, usando el historial de casos y variables climáticas rezagadas.
 - **Importancia de la problemática:** una predicción con 4 semanas de anticipación daría margen para fumigación, control de criaderos y preparación hospitalaria antes de que el brote crezca.
 
 ## 2. Dataset
@@ -23,19 +23,43 @@
   | ICEN mensual | Índice Costero El Niño, 2009-2024 |
   | Enlace distrito-celda | Une cada distrito con su celda climática |
 
-  Lima tiene 81 distritos con clima disponible para todos y 122,073 casos entre 2010 y 2024. El 97.2 % de esos casos se concentra en 2023-2024 (30,735 y 87,864 casos), por el megabrote ligado al Niño costero. De 2010 a 2022 las series son casi nulas, así que el modelo debe capturar una variabilidad temporal muy alta.
+  **Alcance:** "Lima" en este proyecto es el departamento (`DEPARTAMENTO = "LIMA"` en `src/preprocessing.py`), no un distrito. Sus 81 distritos tienen clima disponible y suman 122,073 casos entre 2010 y 2024. El 97.2 % de esos casos se concentra en 2023-2024 (30,735 y 87,864 casos), por el megabrote ligado al Niño costero. De 2010 a 2022 las series son casi nulas, así que el modelo debe capturar una variabilidad temporal muy alta.
 - **Permisos/licencia:** la vigilancia es dato público del MINSA con licencia ODC-BY (requiere atribución) y es provisional. Detalle en [`data/raw/README.md`](data/raw/README.md).
 - Los datos originales se guardan en `data/raw/` (como `dengue_kaggle.zip`) y los procesados en `data/processed/`.
 
-## 3. Metodología
-1. Revisión de literatura académica revisada por pares.
+## 3. Literatura y modelos propuestos
+**Papers revisados** (resumen en `papers/`):
+
+| Paper | Qué aportó al proyecto |
+|---|---|
+| Leung et al. (2023), revisión sistemática de 99 modelos de predicción de brotes de dengue (Luis) | Todos los modelos usan clima y solo el 59.6 % ajusta rezagos, que los autores consideran indispensables: por eso usamos clima rezagado 2/4/6/8 semanas. Las técnicas más comunes de ML son redes neuronales (23.1 %), random forest (15.4 %) y ensembles (10.3 %). El 20.2 % no tiene validación: por eso validamos con cortes temporales (walk-forward) y bootstrap de bloques. |
+| Chadalavada et al. (2025), revisión sistemática 2013-2025 (Alonso) | XGBoost aparece entre los métodos más confiables (aunque los estudios no son comparables entre sí) y un LSTM con historial y clima alcanzó MAPE 19.63 % (Chen y Moraga, 2025). Integrar datos epidemiológicos y climáticos mejora la predicción. |
+| Mayta y Alemán (2025), DengueAI (Perú) | Compara series de tiempo y deep learning sobre datos abiertos de Perú: es el antecedente local de comparar modelos clásicos con redes. |
+
+**Modelos a implementar** (el baseline se compara con cada uno):
+
+| Modelo | Dónde | Por qué se eligió |
+|---|---|---|
+| Persistencia (baseline) | `src/models.py` | Repite los casos de hoy a 4 semanas. Referencia mínima que todo modelo debe superar. |
+| XGBoost tuneado | `src/models.py`, `notebooks/03_xgboost.ipynb` | Ensemble de árboles, familia respaldada por Leung (random forest y ensembles) y por Chadalavada (XGBoost). Funciona con pocas filas, captura relaciones no lineales entre clima rezagado y casos, y permite medir importancia de variables. |
+| LSTM y GRU | `notebooks/02_modelos.ipynb` | Redes recurrentes, las más usadas en la literatura para series con clima (Leung: redes neuronales; Chadalavada: LSTM). Reciben ventanas de 8 semanas de historial y clima; la variante regional agrega departamentos vecinos. La GRU es una versión más liviana de la LSTM. |
+
+Resultado resumido (sección 7): XGBoost supera a LSTM y GRU. Con solo dos olas epidémicas (2023 y 2024) hay pocos datos para entrenar redes recurrentes, y estas terminan subestimando los picos.
+
+**Métricas.** Se reportan en casos (no en log):
+- **MAE:** error absoluto medio, en casos por semana.
+- **RMSE:** como el MAE pero penaliza más los errores grandes (los picos).
+- **WAPE** (*weighted absolute percentage error*): `Σ|y − ŷ| / Σ|y| × 100`, es decir, el error total como porcentaje de los casos totales. 0 % es perfecto y 100 % equivale a no acertar nada del volumen. Es equivalente al cociente MAD/Mean de Kolassa y Schütz (2007). Lo elegimos porque el 59 % de las semanas de Lima tiene 0 casos, lo que vuelve indefinido al MAPE (división por cero); el WAPE pondera por volumen, no depende de la escala y se lee directamente como "% de casos mal predichos".
+
+## 4. Metodología
+1. Revisión de literatura académica revisada por pares (sección 3).
 2. Análisis exploratorio de datos en `notebooks/01_eda.ipynb`.
 3. Preparación de datos con funciones de `src/preprocessing.py`.
-4. Implementación del baseline (persistencia) y de XGBoost tuneado en `src/models.py`; LSTM y GRU en `notebooks/02_modelos.ipynb`.
-5. Evaluación con métricas apropiadas en `src/evaluation.py` (MAE, RMSE y WAPE en casos).
+4. Implementación del baseline (persistencia) y de XGBoost tuneado en `src/models.py`; LSTM y GRU en `notebooks/02_modelos.ipynb` (justificación en la sección 3).
+5. Evaluación con métricas apropiadas en `src/evaluation.py` (MAE, RMSE y WAPE en casos, definidas en la sección 3).
 6. Comparación y discusión de resultados (`notebooks/03_xgboost.ipynb`, `results/model_comparison.txt`).
 
-## 4. Estructura
+## 5. Estructura
 - `data/raw/`: datos originales.
 - `data/processed/`: datos limpios y preparados.
 - `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU) y `03_xgboost.ipynb` (XGBoost tuneado y comparación); anexo opcional: `anexo_ablacion_errores.ipynb` (ablación de variables y errores por fase).
@@ -43,7 +67,7 @@
 - `results/`: métricas, gráficos y análisis comparativo.
 - `papers/`: artículos revisados por el grupo.
 
-## 5. Cómo ejecutar
+## 6. Cómo ejecutar
 1. Instalar Python 3.10 o superior.
 2. Crear y activar un entorno virtual.
 3. Instalar dependencias:
@@ -60,7 +84,7 @@
    ```
    `03_xgboost.ipynb` usa los hiperparámetros guardados en `results/tuning_hiperparametros.json`; si no existen, repite la búsqueda (~10 min). Genera `data/processed/modelado_ampliado.csv` (18 departamentos) si falta. Para comparar corridas de XGBoost hay que usar el mismo `N_JOBS` (por defecto 1).
 
-## 6. Resultados
+## 7. Resultados
 Resultados en `results/metrics.csv`, gráficos en `results/plots/` y análisis en `results/model_comparison.txt`. XGBoost (Lima, 759 semanas, MAE medio de 3 semillas):
 
 | Modelo | MAE | RMSE | WAPE % |
@@ -83,32 +107,12 @@ La mejora frente a la persistencia es significativa (IC 95 % de la diferencia de
 
 LSTM y GRU subestiman ~1450-1670 casos por semana; la GRU no mejora a la persistencia en MAE. Limitaciones: solo dos olas, el pico sigue subestimado y solo ~15 % de los inicios de ola se avisan a tiempo con 4 semanas de anticipación.
 
-## 7. Referencias
+## 8. Trabajo futuro (para el artículo)
+
+- **Alerta de brote por distrito:** predecir, para los 5–10 distritos que concentran 40–64% de los casos (Lima 2023–24), si se iniciará un brote en 4 semanas. Plantear como clasificación binaria (brote sí/no) y no como conteo, porque las series por distrito son dispersas (muchas semanas en cero, solo dos olas). Limitación: a nivel Lima solo ~15% de las alzas se anticipa a tiempo, por lo que por distrito sería más difícil.
+
+## 9. Referencias
 - Leung, X. Y., Islam, R. M., Adhami, M., Ilic, D., McDonald, L., Palawaththa, S., Diug, B., Munshi, S. U., & Karim, M. N. (2023). A systematic review of dengue outbreak prediction models: Current scenario and future directions. *PLOS Neglected Tropical Diseases, 17*(2), e0010631. https://doi.org/10.1371/journal.pntd.0010631
 - Chadalavada, S., Kamath, A. P., Sengur, A., Yarlagadda, T., Tan, R.-S., Ciaccio, E. J., Mathew, A., Deo, R., Barua, P. D., Hafeez-Baig, A., & Acharya, R. (2025). Automated detection and prediction of dengue fever: A systematic review from 2013 to 2025.
 - Mayta Quispe, M. F., & Alemán Gonzales, L. (2025). DengueAI: Comparative time-series and deep-learning modeling for early prediction of dengue outbreaks in rural Peru using open data. *2025 IEEE XXXII International Conference on Electronics, Electrical Engineering and Computing (INTERCON)*. https://doi.org/10.1109/INTERCON67304.2025.11244382
-
-
-## Datos crudos
-Los 5 CSV originales vienen comprimidos en dengue_kaggle.zip (23.8 MB). Los CSV descomprimidos pesan ~200 MB (el de vigilancia, 108 MB, supera el límite de 100 MB de GitHub), por eso están en .gitignore y solo se sube el zip.
-
-## Cómo usarlos
-Descomprimir dengue_kaggle.zip dentro de esta carpeta (data/raw/), de modo que los 5 CSV queden aquí.
-Ejecutar python src/preprocessing.py para generar las tablas de data/processed/.
-Origen del zip: dataset de Kaggle https://www.kaggle.com/datasets/stefanychavezherrera/dengue, sin modificar.
-
-## Archivos
-## Archivo	Tamaño	Contenido	Fuente original
-datos_abiertos_vigilancia_dengue_2000_2024.csv	108.5 MB	Un caso por fila (departamento, distrito, año, semana, diagnóstico, edad, sexo). Separador ;	CDC Perú-MINSA (RENACE), datosabiertos.gob.pe
-clima_celda_semana.csv	91.1 MB	Clima semanal por celda de grilla (~55 km), 2010-2024, con rezagos de 2/4/6/8 semanas y anomalías	NASA POWER (MERRA-2)
-icen_mensual.csv	23 KB	Índice Costero El Niño, mensual, 2009-2024	IGP / ENFEN
-distritos_dengue_centroides.csv	144 KB	660 distritos con ubicación, altitud, IDH y pobreza	Compilado en el dataset de Kaggle
-mapa_ubigeo_celda.csv	51 KB	Distrito (ubigeo) a celda de grilla climática	Compilado en el dataset de Kaggle
-## Permisos y licencia
-Fecha de descarga: 2026-10-10 (Kaggle, dataset completo de 5 archivos).
-La vigilancia es dato público del MINSA con licencia ODC-BY (requiere atribución). La ficha oficial indica que los datos son provisionales.
-No se verificó la licencia del dataset de Kaggle que reúne los 5 archivos.
-Notas
-ubigeo debe leerse como texto; si no, se pierde el cero inicial de los departamentos con código menor a 10.
-Las filas duplicadas de la vigilancia no se eliminan (cada fila es un caso, no hay identificador de paciente).
-Los datos llegan hasta 2024. Existen datos de 2025-2026 solo en boletines del CDC (no integrados aún).
+- Kolassa, S., & Schütz, W. (2007). Advantages of the MAD/Mean ratio over the MAPE. *Foresight: The International Journal of Applied Forecasting, 6*, 40-43. (Fuente del WAPE.)
