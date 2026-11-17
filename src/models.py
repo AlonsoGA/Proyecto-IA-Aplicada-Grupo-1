@@ -1,4 +1,4 @@
-"""Modelos: persistencia (baseline) y XGBoost tuneado.
+"""Modelos: persistencia (baseline), XGBoost tuneado y redes recurrentes (LSTM/GRU).
 
 - Persistencia: predecir que dentro de 4 semanas habra los mismos casos que
   esta semana. Cualquier modelo debe superarla para justificar su complejidad.
@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
 
-from evaluation import a_casos
+from evaluation import HORIZONTE, PASOS, a_casos
 from preprocessing import FEATURES
 
 BLOQUE = 13          # semanas entre reentrenamientos (walk-forward)
@@ -159,3 +159,157 @@ def walk_forward(m, test_idx, mejores, semilla, cols=FEATURES):
             params = mejores["2023"]["XGBoost"]["params"]
         pred[sel] = ajustar_predecir(params, cols, tr, bloque, semilla)
     return np.maximum(prueba["log_casos"].to_numpy() + pred, 0)
+
+
+# =============================================================================
+# Redes recurrentes (LSTM / GRU)
+# =============================================================================
+# Ventanas de PASOS semanas de historial (y clima) -> casos de t+HORIZONTE.
+# TensorFlow se importa dentro de las funciones: asi importar este modulo (para
+# persistencia o XGBoost) no exige ni carga TensorFlow.
+
+LIMA = "LIMA"
+PRUEBA_DESDE = pd.Timestamp("2024-01-01")
+INICIOS_VALIDACION = pd.to_datetime(["2021-01-01", "2022-01-01", "2023-01-01"])
+HISTORIAL = ["log_casos", "log_casos_lag1", "log_casos_lag2",
+             "log_casos_lag3", "log_casos_mm4", "sem_sin", "sem_cos"]
+UNIDADES, DROPOUT, LOTE = 32, 0.2, 32
+EPOCAS_MAX, PACIENCIA, SEMILLA_RNN = 80, 8, 42
+
+
+def cargar_datos_recurrente(processed):
+    """Lee modelado.csv, recupera la fecha objetivo desde la grilla semanal y
+    devuelve (df, variables): `variables` = historial + clima (el historial va
+    primero, asi las variantes "solo historial" usan las primeras columnas)."""
+    df = pd.read_csv(processed / "modelado.csv", parse_dates=["fecha_inicio"])
+    grilla = pd.read_csv(
+        processed / "departamentos_semanal.csv", parse_dates=["fecha_inicio"],
+        usecols=["departamento", "fecha_inicio"],
+    ).sort_values(["departamento", "fecha_inicio"])
+    grilla["fecha_objetivo"] = grilla.groupby("departamento").fecha_inicio.shift(-HORIZONTE)
+    df = df.merge(grilla, on=["departamento", "fecha_inicio"], validate="one_to_one")
+    df = df.loc[df.fecha_objetivo.sub(df.fecha_inicio).eq(pd.Timedelta(weeks=HORIZONTE))]
+    clima = [c for c in df if c.startswith(("temp_", "precip_", "hum_rel"))
+             or c in {"dias_lluvia", "viento"}]
+    return df, HISTORIAL + clima
+
+
+def construir_ventanas(df, variables):
+    """Ventanas de PASOS semanas consecutivas por departamento.
+
+    Devuelve (X, y, meta): X (n, PASOS, n_vars), y = objetivo en log(1 + casos)
+    y meta con departamento, origen y fecha_objetivo de cada ventana."""
+    ventanas, filas = [], []
+    for departamento, grupo in df.groupby("departamento"):
+        grupo = grupo.sort_values("fecha_inicio")
+        if grupo.fecha_inicio.duplicated().any():
+            raise ValueError(f"Semanas duplicadas en {departamento}")
+        valores = grupo[variables].to_numpy(dtype=np.float32)
+        for i in range(PASOS - 1, len(grupo)):
+            fila = grupo.iloc[i]
+            inicio = i - PASOS + 1
+            fechas = grupo.fecha_inicio.iloc[inicio:i + 1]
+            if not fechas.diff().iloc[1:].eq(pd.Timedelta(weeks=1)).all():
+                continue
+            if fila.fecha_objetivo - fila.fecha_inicio != pd.Timedelta(weeks=HORIZONTE):
+                raise ValueError("La etiqueta no corresponde a t+4")
+            ventana = valores[inicio:i + 1]
+            if not np.isfinite(ventana).all() or not np.isfinite(fila.objetivo):
+                raise ValueError(f"Valor no finito en {departamento}, {fila.fecha_inicio}")
+            ventanas.append(ventana)
+            filas.append((departamento, fila.fecha_inicio, fila.fecha_objetivo, fila.objetivo))
+    meta = pd.DataFrame(filas, columns=["departamento", "origen", "fecha_objetivo", "objetivo"])
+    return np.stack(ventanas), meta.objetivo.to_numpy(dtype=np.float32), meta
+
+
+def particion(meta, desde, hasta=None):
+    """Mascaras (train, evalua): se entrena con etiquetas anteriores a `desde`
+    y se evalua en Lima con origenes desde `desde` (y objetivo antes de `hasta`)."""
+    train = meta.fecha_objetivo.lt(desde)
+    evalua = meta.departamento.eq(LIMA) & meta.origen.ge(desde)
+    if hasta is not None:
+        evalua &= meta.fecha_objetivo.lt(hasta)
+    if not train.any() or not evalua.any():
+        raise ValueError(f"Particion vacia desde {desde:%Y-%m-%d}")
+    assert meta.loc[train, "fecha_objetivo"].max() < meta.loc[evalua, "origen"].min()
+    return train.to_numpy(), evalua.to_numpy()
+
+
+def escalar(X, train, evalua, n_variables):
+    """Estandariza con media y desvio del entrenamiento (sin mirar el futuro)."""
+    from sklearn.preprocessing import StandardScaler
+    x_train = X[train, :, :n_variables]
+    x_eval = X[evalua, :, :n_variables]
+    scaler = StandardScaler().fit(x_train.reshape(-1, n_variables))
+
+    def transformar(x):
+        return scaler.transform(x.reshape(-1, n_variables)).reshape(x.shape)
+
+    return transformar(x_train), transformar(x_eval)
+
+
+def configuraciones_recurrente(n_historial, n_variables):
+    """{nombre: (familia, solo_lima, n_variables)} para LSTM y GRU."""
+    entradas = {
+        "Lima, historial": (True, n_historial),
+        "Lima, historial y clima": (True, n_variables),
+        "regional, historial y clima": (False, n_variables),
+    }
+    return {f"{familia} {nombre}": (familia, solo_lima, n)
+            for familia in ("LSTM", "GRU")
+            for nombre, (solo_lima, n) in entradas.items()}
+
+
+def modelo_recurrente(familia, n_variables):
+    """Una capa recurrente (LSTM o GRU) + Dropout + Dense(1), Adam y MSE."""
+    import tensorflow as tf
+    capa = {"LSTM": tf.keras.layers.LSTM, "GRU": tf.keras.layers.GRU}[familia]
+    modelo = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(PASOS, n_variables)),
+        capa(UNIDADES),
+        tf.keras.layers.Dropout(DROPOUT),
+        tf.keras.layers.Dense(1),
+    ])
+    modelo.compile(optimizer="adam", loss="mse")
+    return modelo
+
+
+def ajustar_recurrente(X, y, meta, train, evalua, config, epocas=None):
+    """Entrena y predice (en casos) los origenes `evalua`.
+
+    Sin `epocas`: parada temprana por MAE en casos sobre `evalua` (validacion).
+    Con `epocas`: entrena ese numero fijo (prueba final, sin mirar `evalua`).
+    Devuelve (prediccion en casos, mejor epoca)."""
+    import tensorflow as tf
+    familia, solo_lima, n_variables = config
+    if solo_lima:
+        train = train & meta.departamento.eq(LIMA).to_numpy()
+    x_train, x_eval = escalar(X, train, evalua, n_variables)
+    tf.keras.backend.clear_session()
+    tf.keras.utils.set_random_seed(SEMILLA_RNN)
+    modelo = modelo_recurrente(familia, n_variables)
+
+    class MAEEnCasos(tf.keras.callbacks.Callback):
+        def __init__(self, x_val, reales):
+            super().__init__()
+            self.x_val, self.reales = x_val, reales
+
+        def on_epoch_end(self, epoch, logs=None):
+            pred = a_casos(self.model(self.x_val, training=False).numpy().ravel())
+            logs["val_mae_casos"] = float(np.abs(pred - self.reales).mean())
+
+    opciones = {}
+    if epocas is None:
+        opciones = {
+            "validation_data": (x_eval, y[evalua]),
+            "callbacks": [
+                MAEEnCasos(x_eval, a_casos(y[evalua])),
+                tf.keras.callbacks.EarlyStopping(
+                    monitor="val_mae_casos", mode="min", patience=PACIENCIA,
+                    restore_best_weights=True),
+            ],
+        }
+    ajuste = modelo.fit(x_train, y[train], epochs=epocas or EPOCAS_MAX, batch_size=LOTE,
+                        shuffle=False, verbose=0, **opciones)
+    mejor_epoca = epocas or int(np.argmin(ajuste.history["val_mae_casos"])) + 1
+    return a_casos(modelo.predict(x_eval, verbose=0).ravel()), mejor_epoca
