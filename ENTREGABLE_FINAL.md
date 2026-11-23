@@ -31,3 +31,18 @@ En el protocolo común de **759 semanas de Lima**, XGBoost completo obtuvo un MA
 
 En la ablación reproducida, retirar por separado el ICEN o las tendencias recientes redujo ligeramente el MAE histórico. Retirar el clima, la estacionalidad o la información regional lo aumentó. Las 77 semanas de brote concentraron el **96,8 %** del error absoluto del modelo completo.
 
+## 4. Limitaciones
+
+- Solo dos olas grandes (2023 y 2024) para evaluar.
+- El pico sigue subestimado. XGBoost completo predice el cruce de 500 casos por semana con 3 semanas de retraso en 2023 y 1 en 2024 (persistencia: 4).
+- Las variables nuevas se diseñaron mirando Lima.
+- XGBoost depende del número de hilos: comparar siempre con el mismo `N_JOBS`.
+- `requirements.txt` no fija versiones, por lo que no se garantiza identidad numérica entre entornos.
+
+## 5. Papers revisados
+
+Ver `papers/` (uno por integrante) y `README.md`, sección 3.
+
+## 6. Presentación editable
+
+El código fuente de la presentación está en `presentacion/construir_presentacion.py` y genera `presentacion/presentacion_final.pptx` (13 diapositivas, las 6 últimas ocultas como anexo para preguntas).

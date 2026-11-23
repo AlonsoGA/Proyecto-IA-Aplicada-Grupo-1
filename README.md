@@ -148,7 +148,7 @@ En el análisis de errores de esa misma ejecución, las **77 semanas de brote** 
 
 ## 8. Trabajo futuro (para el artículo)
 
-- **Alerta de brote por distrito:** predecir, para los 5–10 distritos que concentran 40–64% de los casos (Lima 2023–24), si se iniciará un brote en 4 semanas. Plantear como clasificación binaria (brote sí/no) y no como conteo, porque las series por distrito son dispersas (muchas semanas en cero, solo dos olas). Limitación: a nivel Lima solo ~15% de las alzas se anticipa a tiempo, por lo que por distrito sería más difícil.
+- **Alerta de brote por distrito:** predecir, para los 5–10 distritos que concentran 40–64% de los casos (Lima 2023–24), si se iniciará un brote en 4 semanas. Plantear como clasificación binaria (brote sí/no) y no como conteo, porque las series por distrito son dispersas (muchas semanas en cero, solo dos olas). Limitación: a nivel Lima el cruce de 500 casos se predice 3 semanas tarde en 2023 y 1 en 2024, por lo que por distrito sería más difícil.
 
 ## 9. Referencias
 - Leung, X. Y., Islam, R. M., Adhami, M., Ilic, D., McDonald, L., Palawaththa, S., Diug, B., Munshi, S. U., & Karim, M. N. (2023). A systematic review of dengue outbreak prediction models: Current scenario and future directions. *PLOS Neglected Tropical Diseases, 17*(2), e0010631. https://doi.org/10.1371/journal.pntd.0010631

@@ -63,6 +63,6 @@ casos por semana (con 2030 casos medios); la GRU no mejora a la persistencia en 
   donde esta ~60 % del error.
 - Limitaciones: solo dos olas (2023 y 2024) y el tuning se valida con brotes mas
   chicos; 92 % del error de Lima esta en ~30 semanas; el pico sigue subestimado
-  (-5,200 casos); las variables nuevas se disenaron mirando Lima; solo ~15 % de los
-  inicios de ola se avisan a tiempo con 4 semanas; XGBoost depende del numero de
+  (-5,200 casos); las variables nuevas se disenaron mirando Lima; el cruce de
+  500 casos/semana se predice 3 sem. tarde en 2023 y 1 en 2024; XGBoost depende del numero de
   hilos (comparar siempre con el mismo N_JOBS).
