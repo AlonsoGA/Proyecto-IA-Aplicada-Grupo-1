@@ -1,0 +1,46 @@
+{
+  "LSTM": {
+    "2022": {
+      "params": {
+        "unidades": 64,
+        "dropout": 0.2,
+        "lr": 0.003,
+        "epocas": 40
+      },
+      "cv": 0.7036,
+      "cv_defecto": 0.7626
+    },
+    "2023": {
+      "params": {
+        "unidades": 64,
+        "dropout": 0.2,
+        "lr": 0.003,
+        "epocas": 40
+      },
+      "cv": 0.7231,
+      "cv_defecto": 0.7556
+    }
+  },
+  "GRU": {
+    "2022": {
+      "params": {
+        "unidades": 32,
+        "dropout": 0.2,
+        "lr": 0.001,
+        "epocas": 40
+      },
+      "cv": 0.6806,
+      "cv_defecto": 0.8356
+    },
+    "2023": {
+      "params": {
+        "unidades": 32,
+        "dropout": 0.2,
+        "lr": 0.001,
+        "epocas": 40
+      },
+      "cv": 0.7853,
+      "cv_defecto": 0.8779
+    }
+  }
+}

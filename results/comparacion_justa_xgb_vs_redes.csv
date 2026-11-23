@@ -1,0 +1,13 @@
+red,periodo,dif MAE,IC95 bajo,IC95 alto
+LSTM,759 semanas,-4.4,-17.9,7.3
+LSTM,2023-2024,-32.8,-134.1,58.5
+LSTM,2024,-27.5,-247.6,174.6
+LSTM + regional + nuevas,759 semanas,-8.2,-27.3,5.0
+LSTM + regional + nuevas,2023-2024,-63.4,-211.6,36.0
+LSTM + regional + nuevas,2024,-158.5,-467.0,30.6
+GRU,759 semanas,-24.5,-66.9,2.7
+GRU,2023-2024,-192.5,-533.7,21.8
+GRU,2024,-269.4,-945.2,197.1
+GRU + regional + nuevas,759 semanas,-24.8,-67.1,3.5
+GRU + regional + nuevas,2023-2024,-196.5,-527.2,18.1
+GRU + regional + nuevas,2024,-283.8,-951.2,174.4

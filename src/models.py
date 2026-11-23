@@ -20,6 +20,7 @@ Tuning y prueba sin filtrar el futuro
 OJO: XGBoost no da el mismo resultado con distinto numero de hilos
 (N_JOBS). Compara siempre corridas con el mismo N_JOBS (por defecto 1).
 """
+import gc
 import json
 import os
 import time
@@ -313,3 +314,145 @@ def ajustar_recurrente(X, y, meta, train, evalua, config, epocas=None):
                         shuffle=False, verbose=0, **opciones)
     mejor_epoca = epocas or int(np.argmin(ajuste.history["val_mae_casos"])) + 1
     return a_casos(modelo.predict(x_eval, verbose=0).ravel()), mejor_epoca
+
+
+# =============================================================================
+# LSTM / GRU en el MISMO protocolo que XGBoost (comparacion justa)
+# =============================================================================
+# Misma prueba (semanas de Lima), mismo walk-forward (reentreno cada BLOQUE
+# semanas con filas cuyo objetivo ya se conocia), mismo universo de
+# entrenamiento, mismas variables, mismo objetivo (`delta`), mismas semillas y
+# misma busqueda de hiperparametros (aleatoria, CV temporal). La red ve las
+# ultimas PASOS semanas de las mismas columnas que XGBoost ve en la semana t.
+
+ESPACIO_RNN = dict(unidades=[16, 32, 64], dropout=[0.1, 0.2, 0.3],
+                   lr=[0.001, 0.003, 0.01], epocas=[10, 20, 40])
+DEFECTO_RNN = dict(unidades=32, dropout=0.2, lr=0.001, epocas=20)
+N_BUSQUEDA_RNN = 10
+
+
+def ventanas_rnn(m, cols):
+    """X (n, PASOS, len(cols)) alineado con las filas de `m` (ordenado por
+    departamento y fecha, indice 0..n-1) y `valida` (ventana de PASOS semanas
+    consecutivas del mismo departamento y sin valores no finitos).
+    Las ventanas invalidas quedan en NaN."""
+    assert m.index.equals(pd.RangeIndex(len(m))), "m debe tener indice 0..n-1"
+    X = np.full((len(m), PASOS, len(cols)), np.nan, dtype=np.float32)
+    valida = np.zeros(len(m), dtype=bool)
+    valores = m[cols].to_numpy(dtype=np.float32)
+    fechas = m["fecha_inicio"].to_numpy()
+    for _, pos in m.groupby("departamento").indices.items():
+        for k in range(PASOS - 1, len(pos)):
+            idx = pos[k - PASOS + 1:k + 1]
+            if (fechas[idx[-1]] - fechas[idx[0]]) != np.timedelta64(7 * (PASOS - 1), "D"):
+                continue
+            X[pos[k]] = valores[idx]
+            valida[pos[k]] = np.isfinite(valores[idx]).all()
+    return X, valida
+
+
+def ajustar_predecir_rnn(familia, params, X, y, tr, te, semilla):
+    """Entrena una capa LSTM/GRU sobre `delta` con las filas `tr` y devuelve el
+    delta predicho (en log) para las filas `te`. Epocas fijas (sin mirar `te`)."""
+    import tensorflow as tf
+    from sklearn.preprocessing import StandardScaler
+    k = X.shape[2]
+    sc = StandardScaler().fit(X[tr].reshape(-1, k))
+
+    def esc(x):  # NaN -> 0 (la media del entrenamiento): solo aparece en filas de prueba tempranas
+        return np.nan_to_num(sc.transform(x.reshape(-1, k)).reshape(x.shape))
+
+    capa = {"LSTM": tf.keras.layers.LSTM, "GRU": tf.keras.layers.GRU}[familia]
+    tf.keras.backend.clear_session()
+    tf.keras.utils.set_random_seed(semilla)
+    modelo = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(PASOS, k)),
+        capa(params["unidades"]),
+        tf.keras.layers.Dropout(params["dropout"]),
+        tf.keras.layers.Dense(1),
+    ])
+    modelo.compile(optimizer=tf.keras.optimizers.Adam(params["lr"]), loss="mse")
+    modelo.fit(esc(X[tr]), y[tr], epochs=params["epocas"], batch_size=LOTE,
+               shuffle=False, verbose=0)
+    pred = modelo.predict(esc(X[te]), verbose=0).ravel()
+    del modelo
+    tf.keras.backend.clear_session()
+    gc.collect()  # evita acumular memoria en cientos de reentrenos seguidos
+    return pred
+
+
+def puntaje_cv_rnn(familia, m, X, valida, params, anios, corte, semilla=SEMILLA_BUSQUEDA):
+    """Igual que puntaje_cv (XGBoost): MAE relativo a la persistencia por anio."""
+    y = m["delta"].to_numpy(dtype=np.float32)
+    rel = []
+    for Y in anios:
+        ini, fin = pd.Timestamp(f"{Y}-01-01"), pd.Timestamp(f"{Y + 1}-01-01")
+        tr_m = (m["fecha_obj"] < ini).to_numpy()
+        va = ((m["fecha_inicio"] >= ini) & (m["fecha_inicio"] < fin)
+              & (m["fecha_obj"] <= corte)).to_numpy()
+        if tr_m.sum() < MIN_TRAIN or not va.any():
+            continue
+        real = a_casos(m.loc[va, "objetivo"].to_numpy())
+        base = np.abs(real - a_casos(m.loc[va, "log_casos"].to_numpy())).mean()
+        if base == 0:
+            continue
+        tr = tr_m & valida & ~np.isnan(y)
+        delta = ajustar_predecir_rnn(familia, params, X, y, tr, va, semilla)
+        pred = a_casos(np.maximum(m.loc[va, "log_casos"].to_numpy() + delta, 0))
+        rel.append(np.abs(real - pred).mean() / base)
+    return float(np.mean(rel)) if rel else np.inf
+
+
+def buscar_rnn(familia, m, X, valida):
+    """Busqueda aleatoria (N_BUSQUEDA_RNN configs) por corte, como `buscar`.
+    Devuelve mejores[corte] = {params, cv, cv_defecto}. Si nada supera al
+    defecto se conserva el defecto."""
+    rng = np.random.default_rng(SEMILLA_BUSQUEDA)
+    configs = muestrear(ESPACIO_RNN, N_BUSQUEDA_RNN, rng)
+    mejores = {}
+    for corte_nombre, corte in CORTES.items():
+        anios = ANIOS_VAL[corte_nombre]
+        t0 = time.time()
+        cv_def = puntaje_cv_rnn(familia, m, X, valida, DEFECTO_RNN, anios, corte)
+        mejor = (np.inf, None)
+        for params in configs:
+            s = puntaje_cv_rnn(familia, m, X, valida, params, anios, corte)
+            if s < mejor[0]:
+                mejor = (s, params)
+        if mejor[0] >= cv_def:
+            mejor = (cv_def, DEFECTO_RNN)
+        mejores[corte_nombre] = {"params": mejor[1], "cv": round(mejor[0], 4),
+                                 "cv_defecto": round(cv_def, 4)}
+        print(f"{familia} corte {corte_nombre}: CV defecto {cv_def:.3f} -> mejor "
+              f"{mejor[0]:.3f} [{time.time() - t0:.0f}s]", flush=True)
+    return mejores
+
+
+def walk_forward_rnn(familia, m, X, valida, test_idx, mejores, semilla):
+    """Igual que `walk_forward`: prediccion (log) para `test_idx`; cada bloque
+    reentrena con filas cuyo objetivo ya se conocia y usa los hiperparametros
+    disponibles en su fecha (defecto antes de 2023)."""
+    y = m["delta"].to_numpy(dtype=np.float32)
+    prueba = m.loc[test_idx]
+    fechas = prueba["fecha_inicio"]
+    pred = np.empty(len(prueba))
+    orden = sorted(fechas.unique())
+    for ini in range(0, len(orden), BLOQUE):
+        bloque_f = orden[ini:ini + BLOQUE]
+        corte = bloque_f[0]
+        sel = fechas.isin(bloque_f).to_numpy()
+        tr_m = (m["fecha_obj"] <= corte).to_numpy()
+        if tr_m.sum() < MIN_TRAIN:
+            pred[sel] = 0.0
+            continue
+        if corte < pd.Timestamp("2023-01-01"):
+            params = DEFECTO_RNN
+        elif corte < pd.Timestamp("2024-01-01"):
+            params = mejores["2022"]["params"]
+        else:
+            params = mejores["2023"]["params"]
+        te = np.zeros(len(m), dtype=bool)
+        te[prueba.index[sel]] = True
+        tr = tr_m & valida & ~np.isnan(y)
+        pred[sel] = ajustar_predecir_rnn(familia, params, X, y, tr, te, semilla)
+    return np.maximum(prueba["log_casos"].to_numpy() + pred, 0)
