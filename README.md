@@ -54,14 +54,14 @@
 | Ventana | 8 semanas | Propia. Flores et al. usan 52 semanas y Majeed et al. de 1 a 6 pasos; con 15 años de datos casi nulos antes de 2023, una ventana larga deja pocas muestras útiles. Falta probar otras ventanas. |
 | Escala log y parada temprana | `log(1 + casos)`, paciencia 8 | Propia: estabiliza los picos y evita sobreajustar. Flores et al. entrenan 100 épocas fijas sin parada temprana. |
 
-Diferencias con Flores et al. (2026): ellos usan solo el historial de casos a nivel nacional y predicen 1 a 5 pasos con atención; nosotros agregamos clima rezagado (recomendado por Leung et al.) y predicimos a 4 semanas. No se hizo búsqueda de hiperparámetros para LSTM/GRU (sí para XGBoost), lo que es una limitación de la comparación.
+Diferencias con Flores et al. (2026): ellos usan solo el historial de casos a nivel nacional y predicen 1 a 5 pasos con atención; nosotros agregamos clima rezagado (recomendado por Leung et al.) y predicimos a 4 semanas. En el experimento original de `notebooks/02_modelos.ipynb` no se hizo una búsqueda de hiperparámetros comparable a la de XGBoost. Posteriormente, `src/comparacion_justa.py` incorporó una búsqueda de hiperparámetros para LSTM/GRU con validación temporal (ajustada con las variables base y reutilizada en la variante completa). Por ello, ambos experimentos deben reportarse por separado.
 
-Resultado resumido (sección 7): XGBoost supera a LSTM y GRU. Con solo dos olas epidémicas (2023 y 2024) hay pocos datos para entrenar redes recurrentes, y estas terminan subestimando los picos.
+Resultado resumido (sección 7): XGBoost completo presenta el menor MAE promedio en la comparación común, seguido de cerca por LSTM base. Sin embargo, los intervalos de confianza de la comparación directa incluyen cero; no se demuestra una superioridad estadísticamente significativa de XGBoost frente a LSTM. Los picos epidémicos siguen siendo difíciles de anticipar.
 
 **Métricas.** Se reportan en casos (no en log):
 - **MAE:** error absoluto medio, en casos por semana.
 - **RMSE:** como el MAE pero penaliza más los errores grandes (los picos).
-- **WAPE** (*weighted absolute percentage error*): `Σ|y − ŷ| / Σ|y| × 100`, es decir, el error total como porcentaje de los casos totales. 0 % es perfecto y 100 % equivale a no acertar nada del volumen. Es equivalente al cociente MAD/Mean de Kolassa y Schütz (2007). Lo elegimos porque el 59 % de las semanas de Lima tiene 0 casos, lo que vuelve indefinido al MAPE (división por cero); el WAPE pondera por volumen, no depende de la escala y se lee directamente como "% de casos mal predichos".
+- **WAPE** (*weighted absolute percentage error*): `Σ|y − ŷ| / Σ|y| × 100`, es decir, el error total como porcentaje de los casos totales. 0 % indica predicciones perfectas; 100 % significa que la suma de errores absolutos iguala el volumen total observado, pero no implica necesariamente que ninguna predicción sea correcta. Es equivalente al cociente MAD/Mean de Kolassa y Schütz (2007). Lo elegimos porque el 59 % de las semanas de Lima tiene 0 casos, lo que vuelve indefinido al MAPE (división por cero); el WAPE pondera por volumen, no depende de la escala y se lee directamente como "% de casos mal predichos".
 
 ## 4. Metodología
 1. Revisión de literatura académica revisada por pares (sección 3).
@@ -69,13 +69,14 @@ Resultado resumido (sección 7): XGBoost supera a LSTM y GRU. Con solo dos olas 
 3. Preparación de datos con funciones de `src/preprocessing.py`.
 4. Implementación del baseline (persistencia) y de XGBoost tuneado en `src/models.py`; LSTM y GRU en `notebooks/02_modelos.ipynb` (justificación en la sección 3).
 5. Evaluación con métricas apropiadas en `src/evaluation.py` (MAE, RMSE y WAPE en casos, definidas en la sección 3).
-6. Comparación y discusión de resultados (`notebooks/03_xgboost.ipynb`, `results/model_comparison.txt`).
+6. Experimento original y análisis de ablación (`notebooks/03_xgboost.ipynb`, `notebooks/anexo_ablacion_errores.ipynb`).
+7. Comparación adicional con protocolo común para persistencia, XGBoost, LSTM y GRU (`src/comparacion_justa.py`), con sus métricas y contrastes estadísticos en `results/comparacion_justa.csv` y `results/comparacion_justa_xgb_vs_redes.csv`.
 
 ## 5. Estructura
 - `data/raw/`: datos originales.
 - `data/processed/`: datos limpios y preparados.
 - `notebooks/`: `01_eda.ipynb` (exploración), `02_modelos.ipynb` (LSTM y GRU, usa `src/models.py`) y `03_xgboost.ipynb` (XGBoost tuneado y comparación); anexo opcional: `anexo_ablacion_errores.ipynb` (ablación de variables y errores por fase).
-- `src/`: `preprocessing.py` (datos, variables regionales y nuevas), `models.py` (persistencia, XGBoost con tuning y walk-forward, y LSTM/GRU) y `evaluation.py` (métricas, prueba de Lima y bootstrap).
+- `src/`: `preprocessing.py` (datos, variables regionales y nuevas), `models.py` (persistencia, XGBoost con tuning y walk-forward, y LSTM/GRU) y `evaluation.py` (métricas, prueba de Lima y bootstrap), además de `comparacion_justa.py` (comparación común de arquitecturas).
 - `results/`: métricas, gráficos y análisis comparativo.
 - `papers/`: artículos revisados por el grupo.
 
@@ -94,30 +95,56 @@ Resultado resumido (sección 7): XGBoost supera a LSTM y GRU. Con solo dos olas 
    ```bash
    jupyter notebook
    ```
-   `03_xgboost.ipynb` usa los hiperparámetros guardados en `results/tuning_hiperparametros.json`; si no existen, repite la búsqueda (~10 min). Genera `data/processed/modelado_ampliado.csv` (18 departamentos) si falta. Para comparar corridas de XGBoost hay que usar el mismo `N_JOBS` (por defecto 1).
+   `03_xgboost.ipynb` usa los hiperparámetros guardados en `results/tuning_hiperparametros.json`; si no existen, repite la búsqueda. Si falta `data/processed/modelado_ampliado.csv`, intenta extraer los datos originales desde `data/raw/dengue_kaggle.zip` (si es necesario) y generar el dataset ampliado. Antes de ejecutar el experimento es necesario disponer de `data/processed/modelado.csv` y las otras tablas que construye el preprocesamiento.
+6. Para reproducir la comparación común, desde la raíz del proyecto:
+   ```bash
+   python src/comparacion_justa.py
+   ```
+   Esta evaluación puede ser prolongada en CPU, utiliza tres semillas y guarda predicciones intermedias en `results/_cache_wf/`. Para contrastar ejecuciones hay que registrar versiones de Python y bibliotecas, datos preparados y `N_JOBS` (por defecto 1). `requirements.txt` todavía no fija versiones, por lo que **no se garantiza identidad numérica entre entornos**.
 
 ## 7. Resultados
-Resultados en `results/metrics.csv`, gráficos en `results/plots/` y análisis en `results/model_comparison.txt`. XGBoost (Lima, 759 semanas, MAE medio de 3 semillas):
 
-| Modelo | MAE | RMSE | WAPE % |
-|---|---|---|---|
-| Persistencia (baseline) | 132.8 | 663.6 | 82.6 |
-| XGBoost tuneado | 79.1 | 463.6 | 49.2 |
-| XGBoost tuneado + regional + variables nuevas | 67.0 | 371.2 | 41.7 |
+### 7.1. Comparación principal: protocolo común (*walk-forward*)
 
-La mejora frente a la persistencia es significativa (IC 95 % de la diferencia de MAE por bootstrap de bloques excluye 0), y se mantiene en 7 de 8 departamentos con ola 2023-24.
+La comparación principal entre arquitecturas está implementada en [`src/comparacion_justa.py`](src/comparacion_justa.py). Evalúa los mismos **759 orígenes semanales de Lima** con horizonte de **cuatro semanas**, reentrenamiento cada **13 semanas**, entrenamiento con Lima, Ica, La Libertad, Áncash y Callao y tres semillas (42, 43 y 44). Usa validación temporal para seleccionar hiperparámetros y considera dos conjuntos de variables: base y base + regionales + nuevas. Los valores de MAE y RMSE están expresados en **casos**.
 
-**Comparación con LSTM y GRU (Alonso).** Su notebook evalúa solo 2024, así que la comparación se hace sobre esos mismos 43 orígenes de Lima (casos medios: 2030). `02_modelos.ipynb` guarda las predicciones de LSTM/GRU en `results/predicciones_lstm_gru.csv` (una semilla; variante regional con historial y clima) y `03_xgboost.ipynb` las compara con los demás modelos en `results/comparacion_2024.csv`. El notebook 02 reporta sus métricas sobre 47 orígenes de 2024 (LSTM MAE 1368.9, GRU 1535.7); la tabla usa solo los 43 orígenes que también tienen predicción de XGBoost, por eso difieren.
+Fuente: [`results/comparacion_justa.csv`](results/comparacion_justa.csv).
 
-| Modelo (Lima, 2024) | MAE | RMSE | Sesgo |
-|---|---|---|---|
-| Persistencia (baseline) | 1688.2 | 2641.5 | +12 |
-| LSTM regional (Alonso) | 1495.8 | 2865.8 | −1452 |
-| GRU regional (Alonso) | 1678.2 | 3192.7 | −1669 |
-| XGBoost tuneado | 968.6 | 1787.5 | −35 |
-| XGBoost tuneado + regional + variables nuevas | 793.4 | 1387.9 | −169 |
+| Modelo | MAE 759 semanas | RMSE 759 semanas | WAPE 759 semanas | MAE 2024 | RMSE 2024 | WAPE 2024 |
+|---|---:|---:|---:|---:|---:|---:|
+| Persistencia | 132.76 | 663.61 | 82.61 % | 1688.19 | 2641.48 | 83.18 % |
+| XGBoost tuneado | 79.06 | 463.62 | 49.20 % | 985.43 | 1816.35 | 48.55 % |
+| **XGBoost + regional + nuevas** | **67.05** | **371.18** | **41.72 %** | **793.41** | **1416.31** | **39.09 %** |
+| LSTM | 73.33 | 411.56 | 45.63 % | 846.36 | 1547.03 | 41.70 % |
+| LSTM + regional + nuevas | 76.49 | 443.16 | 47.60 % | 976.76 | 1771.38 | 48.12 % |
+| GRU | 91.04 | 537.92 | 56.65 % | 1064.91 | 2081.13 | 52.47 % |
+| GRU + regional + nuevas | 91.36 | 528.59 | 56.85 % | 1077.37 | 2046.94 | 53.08 % |
 
-LSTM y GRU subestiman ~1450-1670 casos por semana; la GRU no mejora a la persistencia en MAE. Limitaciones: solo dos olas, el pico sigue subestimado y solo ~15 % de los inicios de ola se avisan a tiempo con 4 semanas de anticipación.
+En este protocolo, el XGBoost completo obtiene el menor MAE promedio observado. En 2024 reduce el MAE aproximadamente **53.0 % frente a persistencia**. No obstante, su ventaja descriptiva frente a LSTM base **no implica superioridad estadísticamente demostrada**: el contraste directo por bootstrap de bloques sobre el MAE arroja un intervalo del 95 % de **−247.6 a 174.6** para 2024, que incluye el cero. Los demás contrastes directos se encuentran en [`results/comparacion_justa_xgb_vs_redes.csv`](results/comparacion_justa_xgb_vs_redes.csv). Los intervalos se calculan sobre diferencias de error, y no deben confundirse con la diferencia de los MAE medios de la tabla.
+
+### 7.2. Experimento original de notebooks y comparación de 43 orígenes
+
+Los notebooks `02_modelos.ipynb` y `03_xgboost.ipynb` conservan un **experimento distinto**: la comparación de 2024 sobre **43 orígenes comunes** entre sus predicciones. Sus métricas se guardan en `results/comparacion_2024.csv` y `results/metrics.csv`. No deben combinarse fila por fila con la evaluación común de la sección 7.1, porque los procedimientos de entrenamiento y las variantes recurrentes son diferentes.
+
+En una **repetición independiente de ese experimento en Google Colab (Python 3.13.18, XGBoost 3.4.1)** se obtuvieron las siguientes métricas de 2024, idénticas en dos ejecuciones del mismo entorno. **Estos resultados de Colab aún no sustituyen necesariamente los CSV versionados en el repositorio.**
+
+| Modelo, experimento original en Colab | MAE 2024 | RMSE 2024 | WAPE 2024 |
+|---|---:|---:|---:|
+| Persistencia | 1688.2 | 2641.5 | 83.2 % |
+| XGBoost tuneado | 1063.3 | 1978.7 | 52.4 % |
+| XGBoost + regional + nuevas | **832.3** | **1465.7** | **41.0 %** |
+| LSTM regional (Alonso) | 1495.8 | 2865.8 | 73.7 % |
+| GRU regional (Alonso) | 1678.2 | 3192.7 | 82.7 % |
+
+La diferencia entre los resultados de XGBoost en distintas ejecuciones no ha sido atribuida de manera concluyente a una sola causa. Los hiperparámetros guardados coinciden, pero `requirements.txt` no fija versiones y no se ha confirmado que los datasets usados históricamente fueran idénticos. La repetición en Colab **demuestra consistencia dentro de ese entorno**, no reproducción exacta en todos los equipos.
+
+### 7.3. Ablación y errores por fase
+
+El experimento de ablación se encuentra en `notebooks/anexo_ablacion_errores.ipynb`. En la repetición de Colab, el MAE histórico fue **70.5** para el modelo completo, **83.1** usando solo las variables base, **68.6** sin ICEN, **68.8** sin las variables nuevas, **73.1** sin clima, **75.8** sin estacionalidad y **77.1** sin información regional. Estas cifras corresponden al protocolo original y **no son una ablación de las siete variantes de la comparación justa**.
+
+La contribución de cada grupo no fue uniformemente positiva: retirar información regional, clima o estacionalidad empeoró el MAE histórico; retirar ICEN o las variables nuevas lo redujo ligeramente en esta ejecución. La interpretación depende del periodo y del protocolo.
+
+En el análisis de errores de esa misma ejecución, las **77 semanas de brote** (percentil 90 de casos) concentraron **96.8 %** del error absoluto del modelo completo. El principal desafío sigue siendo anticipar las subidas bruscas de casos y los picos epidémicos.
 
 ## 8. Trabajo futuro (para el artículo)
 
